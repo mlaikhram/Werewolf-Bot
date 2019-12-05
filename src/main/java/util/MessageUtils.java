@@ -8,18 +8,23 @@ import java.util.regex.Pattern;
 public class MessageUtils {
 
     public static String ID_FORMAT = "<@%s>";
+    public static String ID_REGEX = "<@[0-9]+>";
 
-    public static int mentionToUserID(String mention) {
-        return Integer.parseInt(mention.replaceAll("[<@>]", ""));
+    public static Long mentionToUserID(String mention) {
+        return Long.parseLong(mention.replaceAll("[<@>]", ""));
     }
 
     public static String userIDToMention(String id) {
         return String.format(ID_FORMAT, id);
     }
 
-    public static Collection<Integer> getMentionsFromText(String text) {
-        Collection<Integer> matches = new ArrayList<>();
-        Matcher m = Pattern.compile("<@[0-9]+>").matcher(text);
+    public static boolean isUserMention(String mention) {
+        return mention.matches(ID_REGEX);
+    }
+
+    public static Collection<Long> getMentionsFromText(String text) {
+        Collection<Long> matches = new ArrayList<>();
+        Matcher m = Pattern.compile(ID_REGEX).matcher(text);
         while (m.find()) {
             matches.add(mentionToUserID(m.group()));
         }
