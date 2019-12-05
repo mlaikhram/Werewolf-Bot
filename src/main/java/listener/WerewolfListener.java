@@ -52,7 +52,7 @@ public class WerewolfListener extends ListenerAdapter {
             }
             if (messageTokens[0].equals(MessageUtils.userIDToMention(myID))) {
                 if (messageTokens.length >= 4 && messageTokens[1].equals("play") && messageTokens[2].equals("with")) {
-                    initializeGame(event);
+//                    initializeGame(event);
                     List<User> invitedUsers = new ArrayList<>();
                     for (int i = 3; i < messageTokens.length; ++i) {
                         try {
@@ -64,10 +64,7 @@ public class WerewolfListener extends ListenerAdapter {
                                 else if (target.getId().equals(author.getId())) {
                                     throw new Exception("You are moderating this game! You cannot participate as well");
                                 }
-                                target.openPrivateChannel().queue((channel) -> {
-                                    channel.sendMessage(author.getName() + " invited you to play Werewolf! Would you like to join? (Respond with 'yes' or 'no')").queue();
-                                });
-                                DMListeners.put(target.getId(), author.getId());
+                                // DMListeners.put(target.getId(), author.getId());
                                 invitedUsers.add(target);
                             }
                             else {
@@ -78,6 +75,7 @@ public class WerewolfListener extends ListenerAdapter {
                             event.getChannel().sendMessage(e.getMessage()).queue();
                         }
                     }
+                    // TODO: remove check and add it to session loop
                     if (invitedUsers.size() < 4) {
                         event.getChannel().sendMessage("You need at least 4 valid players to play Werewolf").queue();
 
@@ -89,7 +87,11 @@ public class WerewolfListener extends ListenerAdapter {
                         }
                         sessions.remove(author.getId());
                     }
-                    else {
+
+                    else { // TODO: check for players/moderator already in a session or moderating a session
+                        WerewolfSession session = new WerewolfSession(sourceChannel, author, invitedUsers);
+                        sessions.put(author.getId(), session);
+                        session.promptPlayers(); // TODO: if response list size == 0, end session
                         event.getAuthor().openPrivateChannel().queue((channel) -> {
                             channel.sendMessage("Waiting for invites to be accepted. Type 'ready' to begin with all users who have accepted the invite.").queue();
                         });
@@ -100,6 +102,7 @@ public class WerewolfListener extends ListenerAdapter {
                 }
             }
         }
+        // TODO: check DMRequests to see if a response is expected from author. If so, redirect to the appropriate session and check if DMRequest can be closed
         else if (event.isFromType(ChannelType.PRIVATE)) {
             System.out.println("private message received from " + event.getAuthor() + "!");
             System.out.println(event.getMessage().getContentDisplay());
@@ -112,10 +115,5 @@ public class WerewolfListener extends ListenerAdapter {
                 event.getChannel().sendMessage("Private Pong!").queue();
             }
         }
-    }
-
-    public void initializeGame(MessageReceivedEvent event) {
-        WerewolfSession session = new WerewolfSession(event.getChannel(), event.getAuthor());
-        sessions.put(event.getAuthor().getId(), session);
     }
 }

@@ -36,4 +36,22 @@ public class WerewolfSession {
     public Map<User, Role> getRoles() {
         return roles;
     }
+
+    // TODO: return user IDs to listen to
+    public void promptPlayers() {
+        for (Role player : roles.values()) {
+            player.prompt();
+        }
+    }
+
+    // TODO: checks + game loop
+    public boolean sendResponse(User user, String response) {
+        if (roles.containsKey(user)) {
+            return roles.get(user).applyResponse(response);
+        }
+        else {
+            System.out.println(user + " is not in this session");
+            return true;
+        }
+    }
 }
