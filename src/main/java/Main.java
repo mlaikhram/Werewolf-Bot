@@ -1,5 +1,6 @@
 import listener.WerewolfListener;
 import net.dv8tion.jda.api.AccountType;
+import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
 import javax.security.auth.login.LoginException;
 import java.io.FileInputStream;
@@ -13,9 +14,11 @@ public class Main{
         prop.load(new FileInputStream("bot.properties"));
 
         JDABuilder builder = new JDABuilder(AccountType.BOT);
+        WerewolfListener werewolfListener = new WerewolfListener();
         builder.setToken(prop.getProperty("token"));
         System.out.println("Building bot");
-        builder.addEventListeners(new WerewolfListener());
-        builder.build();
+        builder.addEventListeners(werewolfListener);
+        JDA jda = builder.build();
+        werewolfListener.setJDA(jda);
     }
 }
