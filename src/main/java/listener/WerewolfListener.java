@@ -1,5 +1,6 @@
 package listener;
 
+import model.SessionStatus;
 import model.WerewolfSession;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.*;
@@ -7,10 +8,7 @@ import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import util.MessageUtils;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class WerewolfListener extends ListenerAdapter {
 
@@ -24,6 +22,7 @@ public class WerewolfListener extends ListenerAdapter {
 
     public WerewolfListener() {
         this.sessions = new HashMap<>();
+        this.DMListeners = new HashMap<>();
     }
 
     public void setJDA(JDA jda) {
@@ -47,9 +46,6 @@ public class WerewolfListener extends ListenerAdapter {
 //            System.out.println("my id is " + myID);
 
             String[] messageTokens = rawMessage.split(" ");
-            for (String token : messageTokens) {
-                System.out.println(token);
-            }
             if (messageTokens[0].equals(MessageUtils.userIDToMention(myID))) {
                 if (messageTokens.length >= 4 && messageTokens[1].equals("play") && messageTokens[2].equals("with")) {
 //                    initializeGame(event);
@@ -76,8 +72,8 @@ public class WerewolfListener extends ListenerAdapter {
                         }
                     }
                     // TODO: remove check and add it to session loop
-                    if (invitedUsers.size() < 4) {
-                        event.getChannel().sendMessage("You need at least 4 valid players to play Werewolf").queue();
+                    if (invitedUsers.size() < WerewolfSession.MIN_PLAYER_COUNT) {
+                        event.getChannel().sendMessage("You need at least " + WerewolfSession.MIN_PLAYER_COUNT + " valid players to play Werewolf").queue();
 
                         for (User user : invitedUsers) {
                             user.openPrivateChannel().queue((channel) -> {
@@ -91,8 +87,11 @@ public class WerewolfListener extends ListenerAdapter {
                     else { // TODO: check for players/moderator already in a session or moderating a session
                         WerewolfSession session = new WerewolfSession(sourceChannel, author, invitedUsers);
                         sessions.put(author.getId(), session);
-                        session.promptPlayers(); // TODO: if response list size == 0, end session
-                        event.getAuthor().openPrivateChannel().queue((channel) -> {
+                        Collection<String> userIDs = session.promptPlayers(); // TODO: if response list size == 0, end session
+                        for (String userID : userIDs) {
+                            DMListeners.put(userID, session.getModerator().getId());
+                        }
+                        author.openPrivateChannel().queue((channel) -> {
                             channel.sendMessage("Waiting for invites to be accepted. Type 'ready' to begin with all users who have accepted the invite.").queue();
                         });
                     }
@@ -104,11 +103,28 @@ public class WerewolfListener extends ListenerAdapter {
         }
         // TODO: check DMRequests to see if a response is expected from author. If so, redirect to the appropriate session and check if DMRequest can be closed
         else if (event.isFromType(ChannelType.PRIVATE)) {
-            System.out.println("private message received from " + event.getAuthor() + "!");
-            System.out.println(event.getMessage().getContentDisplay());
+            System.out.println("private message received from " + author + "!");
+            System.out.println(rawMessage);
 
-            if (sessions.containsKey(author.getId())) {
-
+            if (DMListeners.containsKey(author.getId())) {
+                WerewolfSession session = sessions.get(DMListeners.get(author.getId()));
+                if (session.sendResponse(author, rawMessage)) {
+                    DMListeners.remove(author.getId());
+                    SessionStatus sessionStatus = session.checkStatus();
+                    System.out.println("current status: " + sessionStatus);
+                    if (sessionStatus == SessionStatus.EXPIRED) {
+                        for (String id : session.getRoles().keySet()) {
+                            DMListeners.remove(id);
+                        }
+                        DMListeners.remove(session.getModerator().getId());
+                        sessions.remove(session.getModerator().getId());
+                    }
+                }
+            }
+            else {
+                author.openPrivateChannel().queue((channel) -> {
+                    channel.sendMessage("I was not expecting a response from you. If you think I was, please wait a few seconds and send the message again").queue();
+                });
             }
 
             if (event.getMessage().getContentRaw().equals("!ping")) {

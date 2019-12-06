@@ -30,6 +30,10 @@ public abstract class Role {
         return nickName;
     }
 
+    public User getUser() {
+        return user;
+    }
+
     public boolean isWerewolf() {
         return isWerewolf;
     }
@@ -51,7 +55,8 @@ public abstract class Role {
     }
 
     // Send an initial prompt to the user, in which they will respond with a number corresponding to a user
-    public abstract void prompt();
+    // Returns true if prompt requires a response, and false otherwise
+    public abstract boolean prompt();
 
     // Catch the response and act appropriately
     // Returns true if response was valid, and false otherwise

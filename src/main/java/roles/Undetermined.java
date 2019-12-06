@@ -14,12 +14,14 @@ public class Undetermined extends Role {
     }
 
     @Override
-    public void prompt() {
-        user.openPrivateChannel().queue((channel) -> {
-            if (status == RoleStatus.NOT_READY) {
+    public boolean prompt() {
+        if (status == RoleStatus.NOT_READY) {
+            user.openPrivateChannel().queue((channel) -> {
                 channel.sendMessage(session.getModerator().getName() + " invited you to play Werewolf! Would you like to join? (Respond with 'yes' or 'no')").queue();
-            }
-        });
+            });
+            return true;
+        }
+        return false;
     }
 
     @Override
