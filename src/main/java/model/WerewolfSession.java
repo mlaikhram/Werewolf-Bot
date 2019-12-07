@@ -5,6 +5,7 @@ import net.dv8tion.jda.api.entities.User;
 import roles.Undetermined;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class WerewolfSession {
 
@@ -52,14 +53,20 @@ public class WerewolfSession {
         return ids;
     }
 
-    // TODO: checks + game loop
-    public boolean sendResponse(User user, String response) {
-        if (roles.containsKey(user.getId())) {
-            return roles.get(user.getId()).applyResponse(response);
+    // returns list of IDs to remove from DMListener
+    public Collection<String> sendResponse(User user, String response) {
+        if (moderator.getId().equals(user.getId())) {
+            return applyModeratorResponse(response);
+        }
+        else if (roles.containsKey(user.getId()) && roles.get(user.getId()).applyResponse(response)) {
+            return Arrays.asList(user.getId());
+        }
+        else if (!roles.containsKey(user.getId())) {
+            System.out.println(user + " is not in this session");
+            return Arrays.asList(user.getId()); // removes invalid open channel
         }
         else {
-            System.out.println(user + " is not in this session");
-            return true; // removes invalid open channel
+            return new ArrayList<>();
         }
     }
 
@@ -92,5 +99,43 @@ public class WerewolfSession {
             }
         }
         return status;
+    }
+
+    private Collection<String> applyModeratorResponse(String response) {
+        if (status == SessionStatus.WAITING_FOR_PLAYERS) {
+            if (response.equals("ready")) {
+                long readyPlayers = roles.values().stream().filter((role) -> (role.getStatus() == RoleStatus.READY)).count();
+                if (readyPlayers >= MIN_PLAYER_COUNT) {
+                    moderator.openPrivateChannel().queue((channel) -> {
+                        channel.sendMessage("Removing inactive players...").queue();
+                    });
+                    List<String> idsToRemove = roles.values().stream().filter((role) -> (role.getStatus() == RoleStatus.NOT_READY)).map((role) -> (role.getUser().getId())).collect(Collectors.toList());
+                    for (String id : idsToRemove) {
+                        if (roles.containsKey(id)) {
+                            roles.get(id).getUser().openPrivateChannel().queue((channel) -> {
+                                channel.sendMessage("You were removed for inactivity");
+                            });
+                            roles.remove(id);
+                        }
+                    }
+                    idsToRemove.add(moderator.getId());
+                    return idsToRemove;
+                } else {
+                    moderator.openPrivateChannel().queue((channel) -> {
+                        channel.sendMessage("You need at least " + MIN_PLAYER_COUNT + " to begin").queue();
+                    });
+                    return new ArrayList<>();
+                }
+            }
+            else {
+                moderator.openPrivateChannel().queue((channel) -> {
+                    channel.sendMessage("Please respond with 'ready' if you want to begin").queue();
+                });
+                return new ArrayList<>();
+            }
+        }
+        else {
+            return new ArrayList<>();
+        }
     }
 }

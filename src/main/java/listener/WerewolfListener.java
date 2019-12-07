@@ -91,9 +91,11 @@ public class WerewolfListener extends ListenerAdapter {
                         for (String userID : userIDs) {
                             DMListeners.put(userID, session.getModerator().getId());
                         }
+                        DMListeners.put(author.getId(), author.getId());
                         author.openPrivateChannel().queue((channel) -> {
                             channel.sendMessage("Waiting for invites to be accepted. Type 'ready' to begin with all users who have accepted the invite.").queue();
                         });
+                        checkSessionStatus(session);
                     }
                 }
                 else {
@@ -101,35 +103,35 @@ public class WerewolfListener extends ListenerAdapter {
                 }
             }
         }
-        // TODO: check DMRequests to see if a response is expected from author. If so, redirect to the appropriate session and check if DMRequest can be closed
         else if (event.isFromType(ChannelType.PRIVATE)) {
             System.out.println("private message received from " + author + "!");
             System.out.println(rawMessage);
 
             if (DMListeners.containsKey(author.getId())) {
                 WerewolfSession session = sessions.get(DMListeners.get(author.getId()));
-                if (session.sendResponse(author, rawMessage)) {
-                    DMListeners.remove(author.getId());
-                    SessionStatus sessionStatus = session.checkStatus();
-                    System.out.println("current status: " + sessionStatus);
-                    if (sessionStatus == SessionStatus.EXPIRED) {
-                        for (String id : session.getRoles().keySet()) {
-                            DMListeners.remove(id);
-                        }
-                        DMListeners.remove(session.getModerator().getId());
-                        sessions.remove(session.getModerator().getId());
-                    }
+                Collection<String> idsToRemove = session.sendResponse(author, rawMessage);
+                for (String id: idsToRemove) {
+                    DMListeners.remove(id);
                 }
+                checkSessionStatus(session);
             }
             else {
                 author.openPrivateChannel().queue((channel) -> {
                     channel.sendMessage("I was not expecting a response from you. If you think I was, please wait a few seconds and send the message again").queue();
                 });
             }
+        }
+    }
 
-            if (event.getMessage().getContentRaw().equals("!ping")) {
-                event.getChannel().sendMessage("Private Pong!").queue();
+    private void checkSessionStatus(WerewolfSession session) {
+        SessionStatus sessionStatus = session.checkStatus();
+        System.out.println("current status: " + sessionStatus);
+        if (sessionStatus == SessionStatus.EXPIRED) {
+            for (String id : session.getRoles().keySet()) {
+                DMListeners.remove(id);
             }
+            DMListeners.remove(session.getModerator().getId());
+            sessions.remove(session.getModerator().getId());
         }
     }
 }
