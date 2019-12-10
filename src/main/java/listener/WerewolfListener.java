@@ -133,5 +133,21 @@ public class WerewolfListener extends ListenerAdapter {
             DMListeners.remove(session.getModerator().getId());
             sessions.remove(session.getModerator().getId());
         }
+        else if (sessionStatus == SessionStatus.WEREWOLF_KILL) {
+            DMListeners.put(session.getModerator().getId(), session.getModerator().getId());
+            session.askWerewolves();
+        }
+        else if (sessionStatus == SessionStatus.BEGIN_SPECIAL_ROLES) {
+            DMListeners.put(session.getModerator().getId(), session.getModerator().getId());
+            System.out.println("Players to ask for prompt");
+            for (String id : session.getRoles().keySet()) {
+                System.out.println(id);
+                DMListeners.put(id, session.getModerator().getId());
+            }
+            session.checkUsersForSpecialRoles();
+        }
+        else if (sessionStatus == SessionStatus.PENDING_SPECIAL_ROLES) {
+            session.checkUsersForSpecialRoles();
+        }
     }
 }

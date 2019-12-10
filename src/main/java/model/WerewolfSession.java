@@ -3,6 +3,8 @@ package model;
 import net.dv8tion.jda.api.entities.MessageChannel;
 import net.dv8tion.jda.api.entities.User;
 import roles.Undetermined;
+import roles.Villager;
+import roles.Werewolf;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -14,8 +16,10 @@ public class WerewolfSession {
     private final MessageChannel channel;
     private final User moderator;
     private final Map<String, Role> roles;
+    private final ArrayList<String> roleIndexer;
 
     private SessionStatus status;
+    private String victimID;
 
     public WerewolfSession(MessageChannel channel, User moderator, Collection<User> players) {
         this.channel = channel;
@@ -24,7 +28,9 @@ public class WerewolfSession {
         for (User player : players) {
             addPlayer(player);
         }
+        roleIndexer = new ArrayList<>();
         this.status = SessionStatus.WAITING_FOR_PLAYERS;
+        victimID = "";
     }
 
     public void addPlayer(User player) { // TODO: try catch if player is already added
@@ -92,7 +98,21 @@ public class WerewolfSession {
                         channel.sendMessage("All players are ready! The game will begin shortly").queue();
                     });
                 }
-                status = SessionStatus.STARTED;
+                for (String id : roles.keySet()) {
+                    roleIndexer.add(id);
+                }
+                // TODO: Assign roles here
+                int werewolfIndex = new Random().nextInt(roleIndexer.size());
+                for (int i = 0; i < roleIndexer.size(); ++i) {
+                    Role role = getRoleByIndex(i);
+                    if (i == werewolfIndex) {
+                        roles.put(roleIndexer.get(i), new Werewolf(role.getNickName(), role.getUser(), this));
+                    }
+                    else {
+                        roles.put(roleIndexer.get(i), new Villager(role.getNickName(), role.getUser(), this));
+                    }
+                }
+                status = SessionStatus.WEREWOLF_KILL;
             }
             else {
                 status = SessionStatus.WAITING_FOR_PLAYERS;
@@ -134,8 +154,78 @@ public class WerewolfSession {
                 return new ArrayList<>();
             }
         }
+        else if (status == SessionStatus.WEREWOLF_KILL) {
+            try {
+                int index = Integer.parseInt(response);
+                Role target = getRoleByIndex(index);
+                if (target.getStatus() != RoleStatus.ALIVE) {
+                    moderator.openPrivateChannel().queue((channel) -> {
+                        channel.sendMessage( "You must select a player that is alive").queue();
+                    });
+                }
+                else {
+                    victimID = target.getUser().getId();
+                    for (Role role : roles.values()) {
+                        role.resetRound();
+                    }
+                    status = SessionStatus.BEGIN_SPECIAL_ROLES;
+                }
+                return new ArrayList<>();
+            }
+            catch (Exception e) {
+                moderator.openPrivateChannel().queue((channel) -> {
+                    channel.sendMessage( "Please enter a number that corresponds to a player").queue();
+                });
+                return new ArrayList<>();
+            }
+        }
         else {
             return new ArrayList<>();
         }
+    }
+
+    public void askWerewolves() {
+        moderator.openPrivateChannel().queue((channel) -> {
+            channel.sendMessage(getRolesPrompt(true) + "Ask werewolves to wake up and point to a player to kill. Type in the selection once they are ready").queue();
+        });
+    }
+
+    public void checkUsersForSpecialRoles() {
+        long awaitingResponseCount = roles.values().stream().filter((role) -> (role.getStatus() == RoleStatus.ALIVE && !role.respondedThisRound)).count();
+        if (awaitingResponseCount > 0) {
+            status = SessionStatus.PENDING_SPECIAL_ROLES;
+            moderator.openPrivateChannel().queue((channel) -> {
+                channel.sendMessage("Waiting for " + awaitingResponseCount + " more responses to check for special roles").queue();
+            });
+        }
+        else {
+            // TODO: check for protection etc before kill
+            roles.get(victimID).kill();
+            victimID = "";
+            status = SessionStatus.EXECUTION;
+            moderator.openPrivateChannel().queue((channel) -> {
+                channel.sendMessage(getRolesPrompt(true) + "All responses have been recorded. Please select a player to execute").queue();
+            });
+            channel.sendMessage(getRolesPrompt(false) + "Please tell the moderator who you want to execute").queue();
+        }
+    }
+
+    public String getRolesPrompt(boolean isModerator) {
+        String ans = " Use the numbers on the left to indicate the user you would like to target\n";
+        for (int i = 0; i < roleIndexer.size(); ++i) {
+            if (roles.containsKey(roleIndexer.get(i))) {
+                Role role = getRoleByIndex(i);
+                ans += String.format("[%s] %s\n", i, role.getUser().getName() + (isModerator && role.isWerewolf() ? " (WEREWOLF)" : "") + (role.getStatus() == RoleStatus.DEAD ? " (DEAD)" : ""));
+            }
+        }
+        return ans;
+    }
+
+    public List<String> getRoleIndexer() {
+        return roleIndexer;
+    }
+
+    public Role getRoleByIndex(int i) {
+        return roles.get(roleIndexer.get(i));
     }
 }

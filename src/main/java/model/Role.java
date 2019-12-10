@@ -12,6 +12,7 @@ public abstract class Role {
     protected final WerewolfSession session;
 
     protected RoleStatus status;
+    protected boolean respondedThisRound;
 
     protected Role(String roleName, String nickName, boolean isWerewolf, User user, WerewolfSession session) {
         this.roleName = roleName;
@@ -20,6 +21,7 @@ public abstract class Role {
         this.user = user;
         this.session = session;
         this.status = RoleStatus.ALIVE;
+        this.respondedThisRound = false;
     }
 
     public String getRoleName() {
@@ -52,6 +54,10 @@ public abstract class Role {
 
     public void execute() {
         status = RoleStatus.DEAD;
+    }
+
+    public void resetRound() {
+        respondedThisRound = false;
     }
 
     // Send an initial prompt to the user, in which they will respond with a number corresponding to a user
