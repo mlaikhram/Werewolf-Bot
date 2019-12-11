@@ -169,6 +169,7 @@ public class WerewolfSession {
                         role.resetRound();
                     }
                     status = SessionStatus.BEGIN_SPECIAL_ROLES;
+                    promptPlayers();
                 }
                 return new ArrayList<>();
             }
@@ -179,14 +180,87 @@ public class WerewolfSession {
                 return new ArrayList<>();
             }
         }
+        else if (status == SessionStatus.EXECUTION) {
+            try {
+                int index = Integer.parseInt(response);
+                Role target = getRoleByIndex(index);
+                if (target.getStatus() != RoleStatus.ALIVE) {
+                    moderator.openPrivateChannel().queue((channel) -> {
+                        channel.sendMessage( "You must select a player that is alive").queue();
+                    });
+                }
+                else {
+                    target.kill();
+                    channel.sendMessage(target.getNickName() + " has been executed").queue();
+                    long werewolfCount = roles.values().stream().filter((role) -> (role.getStatus() == RoleStatus.ALIVE && role.isWerewolf())).count();
+                    long villagerCount = roles.values().stream().filter((role) -> role.getStatus() == RoleStatus.ALIVE).count() - werewolfCount;
+                    if (werewolfCount <= 0) {
+                        channel.sendMessage(getRolesPrompt(true) + "Villagers win!");
+                        status = SessionStatus.PENDING_REPLAY;
+                    }
+                    else if (werewolfCount >= villagerCount) {
+                        channel.sendMessage(getRolesPrompt(true) + "Werewolves win!");
+                        status = SessionStatus.PENDING_REPLAY;
+                    }
+                    else {
+                        status = SessionStatus.WEREWOLF_KILL;
+                    }
+                }
+                return new ArrayList<>();
+            }
+            catch (Exception e) {
+                moderator.openPrivateChannel().queue((channel) -> {
+                    channel.sendMessage( "Please enter a number that corresponds to a player").queue();
+                });
+                return new ArrayList<>();
+            }
+        }
+        else if (status == SessionStatus.PENDING_REPLAY) {
+            if (response.equalsIgnoreCase("yes")) {
+                moderator.openPrivateChannel().queue((channel) -> {
+                    channel.sendMessage( "Resending invites to players").queue();
+                });
+                for (String id : roles.keySet()) {
+                    User player = roles.get(id).getUser();
+                    roles.put(id, new Undetermined(player.getName(), player, this));
+                }
+                promptPlayers();
+            }
+            else if (response.equalsIgnoreCase("no")) {
+                moderator.openPrivateChannel().queue((channel) -> {
+                    channel.sendMessage( "Ending session").queue();
+                });
+                status = SessionStatus.EXPIRED;
+            }
+            else {
+                moderator.openPrivateChannel().queue((channel) -> {
+                    channel.sendMessage("Please respond 'yes' or 'no'").queue();
+                });
+            }
+            return new ArrayList<>();
+        }
         else {
             return new ArrayList<>();
         }
     }
 
+    public void openInvites() {
+        moderator.openPrivateChannel().queue((channel) -> {
+            channel.sendMessage("Waiting for invites to be accepted. Type 'ready' to begin with all users who have accepted the invite.").queue();
+        });
+        status = SessionStatus.WAITING_FOR_PLAYERS;
+        checkStatus();
+    }
+
     public void askWerewolves() {
         moderator.openPrivateChannel().queue((channel) -> {
-            channel.sendMessage(getRolesPrompt(true) + "Ask werewolves to wake up and point to a player to kill. Type in the selection once they are ready").queue();
+            channel.sendMessage(getRolesPrompt(true) + "Tell everyone to go to sleep. Ask werewolves to wake up and point to a player to kill. Type in the selection once they are ready").queue();
+        });
+    }
+
+    public void askForReplay() {
+        moderator.openPrivateChannel().queue((channel) -> {
+            channel.sendMessage("Would you like to play again with the same group? (Respond with 'yes' or 'no')").queue();
         });
     }
 

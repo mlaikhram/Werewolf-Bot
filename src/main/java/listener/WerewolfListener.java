@@ -52,6 +52,7 @@ public class WerewolfListener extends ListenerAdapter {
                     List<User> invitedUsers = new ArrayList<>();
                     for (int i = 3; i < messageTokens.length; ++i) {
                         try {
+                            System.out.println(messageTokens[i]);
                             if (MessageUtils.isUserMention(messageTokens[i])) {
                                 User target = sourceChannel.getJDA().getUserById(MessageUtils.mentionToUserID(messageTokens[i]));
                                 if (target.isBot()) {
@@ -92,10 +93,7 @@ public class WerewolfListener extends ListenerAdapter {
                             DMListeners.put(userID, session.getModerator().getId());
                         }
                         DMListeners.put(author.getId(), author.getId());
-                        author.openPrivateChannel().queue((channel) -> {
-                            channel.sendMessage("Waiting for invites to be accepted. Type 'ready' to begin with all users who have accepted the invite.").queue();
-                        });
-                        checkSessionStatus(session);
+                        session.openInvites();
                     }
                 }
                 else {
@@ -148,6 +146,21 @@ public class WerewolfListener extends ListenerAdapter {
         }
         else if (sessionStatus == SessionStatus.PENDING_SPECIAL_ROLES) {
             session.checkUsersForSpecialRoles();
+        }
+        else if (sessionStatus == SessionStatus.PENDING_REPLAY) {
+            for (String id : session.getRoles().keySet()) {
+                DMListeners.remove(id);
+            }
+            DMListeners.put(session.getModerator().getId(), session.getModerator().getId());
+            session.askForReplay();
+        }
+        else if (sessionStatus == SessionStatus.REPLAY) {
+            Collection<String> userIDs = session.promptPlayers(); // TODO: if response list size == 0, end session
+            for (String userID : userIDs) {
+                DMListeners.put(userID, session.getModerator().getId());
+            }
+            DMListeners.put(session.getModerator().getId(), session.getModerator().getId());
+            session.openInvites();
         }
     }
 }

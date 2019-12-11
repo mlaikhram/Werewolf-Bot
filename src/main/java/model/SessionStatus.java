@@ -6,5 +6,7 @@ public enum SessionStatus {
     BEGIN_SPECIAL_ROLES,
     PENDING_SPECIAL_ROLES,
     EXECUTION,
+    PENDING_REPLAY,
+    REPLAY,
     EXPIRED
 }
