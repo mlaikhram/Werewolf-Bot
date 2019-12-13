@@ -6,12 +6,15 @@ import roles.Seer;
 import roles.Undetermined;
 import roles.Villager;
 import roles.Werewolf;
+import util.PlaytestUtils;
 import util.RoleAssigner;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
 public class WerewolfSession {
+
+    public static boolean PLAYTEST = true;
 
     public static final int MIN_PLAYER_COUNT = 4;
 
@@ -106,6 +109,14 @@ public class WerewolfSession {
                     roleIndexer.add(id);
                 }
                 RoleAssigner.assignRoles(this);
+                for (Role role : roles.values()) {
+                    try {
+                        PlaytestUtils.addPlaytester(role.getUser().getName());
+                    }
+                    catch (Exception e) {
+                        System.out.println("unable to add playtester " + role.getUser().getName() + ": " + e.getMessage());
+                    }
+                }
                 status = SessionStatus.WEREWOLF_KILL;
             }
             else {
