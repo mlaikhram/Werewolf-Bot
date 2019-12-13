@@ -2,9 +2,11 @@ package model;
 
 import net.dv8tion.jda.api.entities.MessageChannel;
 import net.dv8tion.jda.api.entities.User;
+import roles.Seer;
 import roles.Undetermined;
 import roles.Villager;
 import roles.Werewolf;
+import util.RoleAssigner;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -20,6 +22,7 @@ public class WerewolfSession {
 
     private SessionStatus status;
     private String victimID;
+    private Set<String> protectedIds;
 
     public WerewolfSession(MessageChannel channel, User moderator, Collection<User> players) {
         this.channel = channel;
@@ -31,6 +34,7 @@ public class WerewolfSession {
         roleIndexer = new ArrayList<>();
         this.status = SessionStatus.WAITING_FOR_PLAYERS;
         victimID = "";
+        protectedIds = new HashSet<>();
     }
 
     public void addPlayer(User player) { // TODO: try catch if player is already added
@@ -101,17 +105,7 @@ public class WerewolfSession {
                 for (String id : roles.keySet()) {
                     roleIndexer.add(id);
                 }
-                // TODO: Assign roles here
-                int werewolfIndex = new Random().nextInt(roleIndexer.size());
-                for (int i = 0; i < roleIndexer.size(); ++i) {
-                    Role role = getRoleByIndex(i);
-                    if (i == werewolfIndex) {
-                        roles.put(roleIndexer.get(i), new Werewolf(role.getNickName(), role.getUser(), this));
-                    }
-                    else {
-                        roles.put(roleIndexer.get(i), new Villager(role.getNickName(), role.getUser(), this));
-                    }
-                }
+                RoleAssigner.assignRoles(this);
                 status = SessionStatus.WEREWOLF_KILL;
             }
             else {
@@ -190,16 +184,16 @@ public class WerewolfSession {
                     });
                 }
                 else {
-                    target.kill();
+                    target.execute();
                     channel.sendMessage(target.getNickName() + " has been executed").queue();
                     long werewolfCount = roles.values().stream().filter((role) -> (role.getStatus() == RoleStatus.ALIVE && role.isWerewolf())).count();
                     long villagerCount = roles.values().stream().filter((role) -> role.getStatus() == RoleStatus.ALIVE).count() - werewolfCount;
                     if (werewolfCount <= 0) {
-                        channel.sendMessage(getRolesPrompt(true) + "Villagers win!");
+                        channel.sendMessage(getRolesPrompt(true) + "Villagers win!").queue();
                         status = SessionStatus.PENDING_REPLAY;
                     }
                     else if (werewolfCount >= villagerCount) {
-                        channel.sendMessage(getRolesPrompt(true) + "Werewolves win!");
+                        channel.sendMessage(getRolesPrompt(true) + "Werewolves win!").queue();
                         status = SessionStatus.PENDING_REPLAY;
                     }
                     else {
@@ -273,14 +267,19 @@ public class WerewolfSession {
             });
         }
         else {
-            // TODO: check for protection etc before kill
-            roles.get(victimID).kill();
-            victimID = "";
-            status = SessionStatus.EXECUTION;
+            if (!protectedIds.contains(victimID)) {
+                roles.get(victimID).kill();
+                channel.sendMessage(getRolesPrompt(false) + roles.get(victimID).getNickName() + " has been killed! Please tell the moderator who you want to execute").queue();
+                victimID = "";
+            } else {
+                channel.sendMessage(getRolesPrompt(false) + "Everybody survived the night! Please tell the moderator who you want to execute").queue();
+            }
             moderator.openPrivateChannel().queue((channel) -> {
                 channel.sendMessage(getRolesPrompt(true) + "All responses have been recorded. Please select a player to execute").queue();
             });
-            channel.sendMessage(getRolesPrompt(false) + "Please tell the moderator who you want to execute").queue();
+            status = SessionStatus.EXECUTION;
+            victimID = "";
+            protectedIds.clear();
         }
     }
 
@@ -289,7 +288,7 @@ public class WerewolfSession {
         for (int i = 0; i < roleIndexer.size(); ++i) {
             if (roles.containsKey(roleIndexer.get(i))) {
                 Role role = getRoleByIndex(i);
-                ans += String.format("[%s] %s\n", i, role.getUser().getName() + (isModerator && role.isWerewolf() ? " (WEREWOLF)" : "") + (role.getStatus() == RoleStatus.DEAD ? " (DEAD)" : ""));
+                ans += String.format("[%s] %s\n", i, role.getUser().getName() + (isModerator && !role.getRoleName().equals("Villager") ? " (" + role.getRoleName() + ")" : ""));
             }
         }
         return ans;
@@ -301,5 +300,9 @@ public class WerewolfSession {
 
     public Role getRoleByIndex(int i) {
         return roles.get(roleIndexer.get(i));
+    }
+
+    public void protectPlayer(String id) {
+        protectedIds.add(id);
     }
 }

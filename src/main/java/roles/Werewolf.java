@@ -19,7 +19,7 @@ public class Werewolf extends Role {
     public boolean prompt() {
         if (status == RoleStatus.ALIVE) {
             user.openPrivateChannel().queue((channel) -> {
-                channel.sendMessage(session.getRolesPrompt(false) + "You are a werewolf. Just pick anyone for now").queue();
+                channel.sendMessage(session.getRolesPrompt(false) + "You are a werewolf. Just pick anyone for now (this will not affect anything)").queue();
             });
             return true;
         }
