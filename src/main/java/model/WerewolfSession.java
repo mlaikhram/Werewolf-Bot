@@ -13,7 +13,7 @@ import java.util.stream.Collectors;
 
 public class WerewolfSession {
 
-    public static final int MIN_PLAYER_COUNT = 2;
+    public static final int MIN_PLAYER_COUNT = 4;
 
     private final MessageChannel channel;
     private final User moderator;
