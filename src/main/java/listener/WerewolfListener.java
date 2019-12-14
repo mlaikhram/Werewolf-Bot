@@ -31,11 +31,13 @@ public class WerewolfListener extends ListenerAdapter {
 
     @Override
     public void onMessageReceived(MessageReceivedEvent event) {
+        System.out.println(event.getMessage().getContentRaw());
         if (event.getAuthor().isBot()) {
             return;
         }
 
         String myID = jda.getSelfUser().getId();
+        System.out.println("my id: " + myID);
         User author = event.getAuthor();
         MessageChannel sourceChannel = event.getChannel();
         String rawMessage = event.getMessage().getContentRaw();
@@ -46,7 +48,10 @@ public class WerewolfListener extends ListenerAdapter {
 //            System.out.println("my id is " + myID);
 
             String[] messageTokens = rawMessage.split(" ");
-            if (messageTokens[0].equals(MessageUtils.userIDToMention(myID))) {
+            System.out.println("id: " + MessageUtils.mentionToUserID(messageTokens[0]));
+            if (MessageUtils.mentionToUserID(messageTokens[0]).toString().equals(myID)) {
+//            if ("651588878968422411".equals("651588878968422411")) {
+                System.out.println("in the loop");
                 if (messageTokens.length >= 4 && messageTokens[1].equals("play") && messageTokens[2].equals("with")) {
 //                    initializeGame(event);
                     List<User> invitedUsers = new ArrayList<>();
@@ -93,7 +98,17 @@ public class WerewolfListener extends ListenerAdapter {
                             DMListeners.put(userID, session.getModerator().getId());
                         }
                         DMListeners.put(author.getId(), author.getId());
-                        session.openInvites();
+                        try {
+                            session.openInvites();
+                        }
+                        catch (Exception e) {
+                            session.getChannel().sendMessage("Something went wrong with the session. Closing session").queue();
+                            for (String id : session.getRoles().keySet()) {
+                                DMListeners.remove(id);
+                            }
+                            DMListeners.remove(session.getModerator().getId());
+                            sessions.remove(session.getModerator().getId());
+                        }
                     }
                 }
                 else {
@@ -122,45 +137,50 @@ public class WerewolfListener extends ListenerAdapter {
     }
 
     private void checkSessionStatus(WerewolfSession session) {
-        SessionStatus sessionStatus = session.checkStatus();
-        System.out.println("current status: " + sessionStatus);
-        if (sessionStatus == SessionStatus.EXPIRED) {
+        try {
+            SessionStatus sessionStatus = session.checkStatus();
+            System.out.println("current status: " + sessionStatus);
+            if (sessionStatus == SessionStatus.EXPIRED) {
+                for (String id : session.getRoles().keySet()) {
+                    DMListeners.remove(id);
+                }
+                DMListeners.remove(session.getModerator().getId());
+                sessions.remove(session.getModerator().getId());
+            } else if (sessionStatus == SessionStatus.WEREWOLF_KILL) {
+                DMListeners.put(session.getModerator().getId(), session.getModerator().getId());
+                session.promptWerewolves();
+            } else if (sessionStatus == SessionStatus.BEGIN_SPECIAL_ROLES) {
+                DMListeners.put(session.getModerator().getId(), session.getModerator().getId());
+                System.out.println("Players to ask for prompt");
+                for (String id : session.getRoles().keySet()) {
+                    System.out.println(id);
+                    DMListeners.put(id, session.getModerator().getId());
+                }
+                session.checkUsersForSpecialRoles();
+            } else if (sessionStatus == SessionStatus.PENDING_SPECIAL_ROLES) {
+                session.checkUsersForSpecialRoles();
+            } else if (sessionStatus == SessionStatus.PENDING_REPLAY) {
+                for (String id : session.getRoles().keySet()) {
+                    DMListeners.remove(id);
+                }
+                DMListeners.put(session.getModerator().getId(), session.getModerator().getId());
+                session.askForReplay();
+            } else if (sessionStatus == SessionStatus.REPLAY) {
+                Collection<String> userIDs = session.promptPlayers(); // TODO: if response list size == 0, end session
+                for (String userID : userIDs) {
+                    DMListeners.put(userID, session.getModerator().getId());
+                }
+                DMListeners.put(session.getModerator().getId(), session.getModerator().getId());
+                session.openInvites();
+            }
+        }
+        catch (Exception e) {
+            session.getChannel().sendMessage("Something went wrong with the session. Closing session").queue();
             for (String id : session.getRoles().keySet()) {
                 DMListeners.remove(id);
             }
             DMListeners.remove(session.getModerator().getId());
             sessions.remove(session.getModerator().getId());
-        }
-        else if (sessionStatus == SessionStatus.WEREWOLF_KILL) {
-            DMListeners.put(session.getModerator().getId(), session.getModerator().getId());
-            session.askWerewolves();
-        }
-        else if (sessionStatus == SessionStatus.BEGIN_SPECIAL_ROLES) {
-            DMListeners.put(session.getModerator().getId(), session.getModerator().getId());
-            System.out.println("Players to ask for prompt");
-            for (String id : session.getRoles().keySet()) {
-                System.out.println(id);
-                DMListeners.put(id, session.getModerator().getId());
-            }
-            session.checkUsersForSpecialRoles();
-        }
-        else if (sessionStatus == SessionStatus.PENDING_SPECIAL_ROLES) {
-            session.checkUsersForSpecialRoles();
-        }
-        else if (sessionStatus == SessionStatus.PENDING_REPLAY) {
-            for (String id : session.getRoles().keySet()) {
-                DMListeners.remove(id);
-            }
-            DMListeners.put(session.getModerator().getId(), session.getModerator().getId());
-            session.askForReplay();
-        }
-        else if (sessionStatus == SessionStatus.REPLAY) {
-            Collection<String> userIDs = session.promptPlayers(); // TODO: if response list size == 0, end session
-            for (String userID : userIDs) {
-                DMListeners.put(userID, session.getModerator().getId());
-            }
-            DMListeners.put(session.getModerator().getId(), session.getModerator().getId());
-            session.openInvites();
         }
     }
 }

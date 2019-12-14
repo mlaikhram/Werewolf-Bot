@@ -40,7 +40,7 @@ public abstract class Role {
         return isWerewolf;
     }
 
-    public boolean detect() {
+    public boolean inspect() {
         return isWerewolf;
     }
 

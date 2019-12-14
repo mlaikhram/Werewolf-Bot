@@ -2,10 +2,7 @@ package model;
 
 import net.dv8tion.jda.api.entities.MessageChannel;
 import net.dv8tion.jda.api.entities.User;
-import roles.Seer;
 import roles.Undetermined;
-import roles.Villager;
-import roles.Werewolf;
 import util.PlaytestUtils;
 import util.RoleAssigner;
 
@@ -24,8 +21,9 @@ public class WerewolfSession {
     private final ArrayList<String> roleIndexer;
 
     private SessionStatus status;
-    private String victimID;
+    private Set<String> victimIds;
     private Set<String> protectedIds;
+    private int werewolfKills;
 
     public WerewolfSession(MessageChannel channel, User moderator, Collection<User> players) {
         this.channel = channel;
@@ -36,8 +34,9 @@ public class WerewolfSession {
         }
         roleIndexer = new ArrayList<>();
         this.status = SessionStatus.WAITING_FOR_PLAYERS;
-        victimID = "";
+        victimIds = new HashSet<>();
         protectedIds = new HashSet<>();
+        werewolfKills = 1;
     }
 
     public void addPlayer(User player) { // TODO: try catch if player is already added
@@ -83,7 +82,7 @@ public class WerewolfSession {
         }
     }
 
-    public SessionStatus checkStatus() {
+    public SessionStatus checkStatus() throws Exception {
         if (status == SessionStatus.WAITING_FOR_PLAYERS) {
             if (roles.size() < MIN_PLAYER_COUNT) {
                 moderator.openPrivateChannel().queue((channel) -> {
@@ -109,14 +108,17 @@ public class WerewolfSession {
                     roleIndexer.add(id);
                 }
                 RoleAssigner.assignRoles(this);
-                for (Role role : roles.values()) {
-                    try {
-                        PlaytestUtils.addPlaytester(role.getUser().getName());
-                    }
-                    catch (Exception e) {
-                        System.out.println("unable to add playtester " + role.getUser().getName() + ": " + e.getMessage());
-                    }
-                }
+//                for (Role role : roles.values()) {
+//                    try {
+//                        PlaytestUtils.addPlaytester(role.getUser().getName());
+//                    }
+//                    catch (Exception e) {
+//                        System.out.println("unable to add playtester " + role.getUser().getName() + ": " + e.getMessage());
+//                    }
+//                }
+                moderator.openPrivateChannel().queue((channel) -> {
+                    channel.sendMessage(getRolesPrompt(true) + "Tell everyone to go to sleep. Ask werewolves to wake up and point to a player to kill. Type in the selection once they are ready").queue();
+                });
                 status = SessionStatus.WEREWOLF_KILL;
             }
             else {
@@ -168,13 +170,21 @@ public class WerewolfSession {
                         channel.sendMessage( "You must select a player that is alive").queue();
                     });
                 }
+                else if (victimIds.contains(target.getUser().getId())) {
+                    moderator.openPrivateChannel().queue((channel) -> {
+                        channel.sendMessage( "You have already targeted this player for the night").queue();
+                    });
+                }
                 else {
-                    victimID = target.getUser().getId();
-                    for (Role role : roles.values()) {
-                        role.resetRound();
+                    victimIds.add(target.getUser().getId());
+                    --werewolfKills;
+                    if (werewolfKills <= 0) {
+                        for (Role role : roles.values()) {
+                            role.resetRound();
+                        }
+                        status = SessionStatus.BEGIN_SPECIAL_ROLES;
+                        promptPlayers();
                     }
-                    status = SessionStatus.BEGIN_SPECIAL_ROLES;
-                    promptPlayers();
                 }
                 return new ArrayList<>();
             }
@@ -188,27 +198,43 @@ public class WerewolfSession {
         else if (status == SessionStatus.EXECUTION) {
             try {
                 int index = Integer.parseInt(response);
-                Role target = getRoleByIndex(index);
-                if (target.getStatus() != RoleStatus.ALIVE) {
+                if (index == -1) {
+                    channel.sendMessage("Nobody has been executed!").queue();
                     moderator.openPrivateChannel().queue((channel) -> {
-                        channel.sendMessage( "You must select a player that is alive").queue();
+                        channel.sendMessage(getRolesPrompt(true) + "Tell everyone to go to sleep. Ask werewolves to wake up and point to a player to kill. Type in the selection once they are ready").queue();
                     });
+                    status = SessionStatus.WEREWOLF_KILL;
                 }
                 else {
-                    target.execute();
-                    channel.sendMessage(target.getNickName() + " has been executed").queue();
-                    long werewolfCount = roles.values().stream().filter((role) -> (role.getStatus() == RoleStatus.ALIVE && role.isWerewolf())).count();
-                    long villagerCount = roles.values().stream().filter((role) -> role.getStatus() == RoleStatus.ALIVE).count() - werewolfCount;
-                    if (werewolfCount <= 0) {
-                        channel.sendMessage(getRolesPrompt(true) + "Villagers win!").queue();
-                        status = SessionStatus.PENDING_REPLAY;
-                    }
-                    else if (werewolfCount >= villagerCount) {
-                        channel.sendMessage(getRolesPrompt(true) + "Werewolves win!").queue();
-                        status = SessionStatus.PENDING_REPLAY;
-                    }
-                    else {
-                        status = SessionStatus.WEREWOLF_KILL;
+                    Role target = getRoleByIndex(index);
+                    if (target.getStatus() != RoleStatus.ALIVE) {
+                        moderator.openPrivateChannel().queue((channel) -> {
+                            channel.sendMessage("You must select a player that is alive").queue();
+                        });
+                    } else {
+                        target.execute();
+                        channel.sendMessage(target.getNickName() + " has been executed").queue();
+                        if (target.getRoleName().equals("Miser")) {
+                            channel.sendMessage(target.getNickName() + " was the Miser! " + target.getNickName() + " wins!").queue();
+                            status = SessionStatus.PENDING_REPLAY;
+                        } else {
+                            long werewolfCount = roles.values().stream().filter((role) -> (role.getStatus() == RoleStatus.ALIVE && role.isWerewolf())).count();
+                            long villagerCount = roles.values().stream().filter((role) -> role.getStatus() == RoleStatus.ALIVE).count() - werewolfCount;
+                            System.out.println("werewolf count: " + werewolfCount);
+                            System.out.println("villager count: " + villagerCount);
+                            if (werewolfCount <= 0) {
+                                channel.sendMessage(getRolesPrompt(true) + "Villagers win!").queue();
+                                status = SessionStatus.PENDING_REPLAY;
+                            } else if (werewolfCount >= villagerCount) {
+                                channel.sendMessage(getRolesPrompt(true) + "Werewolves win!").queue();
+                                status = SessionStatus.PENDING_REPLAY;
+                            } else {
+                                moderator.openPrivateChannel().queue((channel) -> {
+                                    channel.sendMessage(getRolesPrompt(true) + "Tell everyone to go to sleep. Ask werewolves to wake up and point to a player to kill. Type in the selection once they are ready").queue();
+                                });
+                                status = SessionStatus.WEREWOLF_KILL;
+                            }
+                        }
                     }
                 }
                 return new ArrayList<>();
@@ -229,7 +255,9 @@ public class WerewolfSession {
                     User player = roles.get(id).getUser();
                     roles.put(id, new Undetermined(player.getName(), player, this));
                 }
-                promptPlayers();
+                roleIndexer.clear();
+//                promptPlayers();
+                status = SessionStatus.REPLAY;
             }
             else if (response.equalsIgnoreCase("no")) {
                 moderator.openPrivateChannel().queue((channel) -> {
@@ -249,7 +277,7 @@ public class WerewolfSession {
         }
     }
 
-    public void openInvites() {
+    public void openInvites() throws Exception {
         moderator.openPrivateChannel().queue((channel) -> {
             channel.sendMessage("Waiting for invites to be accepted. Type 'ready' to begin with all users who have accepted the invite.").queue();
         });
@@ -257,10 +285,12 @@ public class WerewolfSession {
         checkStatus();
     }
 
-    public void askWerewolves() {
-        moderator.openPrivateChannel().queue((channel) -> {
-            channel.sendMessage(getRolesPrompt(true) + "Tell everyone to go to sleep. Ask werewolves to wake up and point to a player to kill. Type in the selection once they are ready").queue();
-        });
+    public void promptWerewolves() {
+        if (werewolfKills > 0) {
+            moderator.openPrivateChannel().queue((channel) -> {
+                channel.sendMessage(werewolfKills + (werewolfKills == 1 ? " kill" : " kills") + " remaining").queue();
+            });
+        }
     }
 
     public void askForReplay() {
@@ -278,19 +308,24 @@ public class WerewolfSession {
             });
         }
         else {
-            if (!protectedIds.contains(victimID)) {
-                roles.get(victimID).kill();
-                channel.sendMessage(getRolesPrompt(false) + roles.get(victimID).getNickName() + " has been killed! Please tell the moderator who you want to execute").queue();
-                victimID = "";
-            } else {
+            int victimCount = 0;
+            for (String victimID : victimIds) {
+                if (!protectedIds.contains(victimID)) {
+                    roles.get(victimID).kill();
+                    channel.sendMessage(getRolesPrompt(false) + roles.get(victimID).getNickName() + " has been killed! Please tell the moderator who you want to execute").queue();
+                    ++victimCount;
+                }
+            }
+            if (victimCount <= 0) {
                 channel.sendMessage(getRolesPrompt(false) + "Everybody survived the night! Please tell the moderator who you want to execute").queue();
             }
             moderator.openPrivateChannel().queue((channel) -> {
                 channel.sendMessage(getRolesPrompt(true) + "All responses have been recorded. Please select a player to execute").queue();
             });
             status = SessionStatus.EXECUTION;
-            victimID = "";
+            victimIds.clear();
             protectedIds.clear();
+            werewolfKills = 1;
         }
     }
 
@@ -299,7 +334,9 @@ public class WerewolfSession {
         for (int i = 0; i < roleIndexer.size(); ++i) {
             if (roles.containsKey(roleIndexer.get(i))) {
                 Role role = getRoleByIndex(i);
-                ans += String.format("[%s] %s\n", i, role.getUser().getName() + (isModerator && !role.getRoleName().equals("Villager") ? " (" + role.getRoleName() + ")" : ""));
+                ans += String.format("[%s] %s\n", i, role.getUser().getName()
+                        + (isModerator && !role.getRoleName().equals("Villager") ? " (" + role.getRoleName() + ")" : "")
+                        + (role.getStatus() == RoleStatus.DEAD ? " (Dead)" : ""));
             }
         }
         return ans;
@@ -315,5 +352,9 @@ public class WerewolfSession {
 
     public void protectPlayer(String id) {
         protectedIds.add(id);
+    }
+
+    public MessageChannel getChannel() {
+        return channel;
     }
 }

@@ -33,7 +33,7 @@ public class Seer extends Role {
             Role target = session.getRoleByIndex(index);
             if (target.getStatus() == RoleStatus.ALIVE) {
                 user.openPrivateChannel().queue((channel) -> {
-                    channel.sendMessage(target.getNickName() + " is " + (target.isWerewolf() ? "" : "not ") + "a Werewolf. Please wait for all players to finish").queue();
+                    channel.sendMessage(target.getNickName() + " is " + (target.inspect() ? "" : "not ") + "a Werewolf. Please wait for all players to finish").queue();
                 });
 
                 session.getModerator().openPrivateChannel().queue((channel) -> {
