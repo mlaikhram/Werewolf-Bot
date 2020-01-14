@@ -28,6 +28,10 @@ public abstract class Role {
         return roleName;
     }
 
+    public String getRoleName(boolean detailed) {
+        return roleName;
+    }
+
     public String getNickName() {
         return nickName;
     }

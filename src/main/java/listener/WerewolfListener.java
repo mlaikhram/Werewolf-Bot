@@ -7,6 +7,7 @@ import net.dv8tion.jda.api.entities.*;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import util.MessageUtils;
+import util.RoleAssigner;
 
 import java.util.*;
 
@@ -41,17 +42,27 @@ public class WerewolfListener extends ListenerAdapter {
         User author = event.getAuthor();
         MessageChannel sourceChannel = event.getChannel();
         String rawMessage = event.getMessage().getContentRaw();
+        String[] messageTokens = rawMessage.split(" ");
 
-        if (event.isFromType(ChannelType.TEXT)) {
+        if (event.isFromType(ChannelType.TEXT) && MessageUtils.isUserMention(messageTokens[0])) {
 //            System.out.println("message received from " + author + "!");
 //            System.out.println(rawMessage);
 //            System.out.println("my id is " + myID);
 
-            String[] messageTokens = rawMessage.split(" ");
             System.out.println("id: " + MessageUtils.mentionToUserID(messageTokens[0]));
             if (MessageUtils.mentionToUserID(messageTokens[0]).toString().equals(myID)) {
 //            if ("651588878968422411".equals("651588878968422411")) {
                 System.out.println("in the loop");
+
+                if (messageTokens.length >= 3 && messageTokens[1].equals("reflect")) {
+                    try {
+                        RoleAssigner.testAssign(author, messageTokens[2]);
+                    }
+                    catch(Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+
                 if (messageTokens.length >= 4 && messageTokens[1].equals("play") && messageTokens[2].equals("with")) {
 //                    initializeGame(event);
                     List<User> invitedUsers = new ArrayList<>();
