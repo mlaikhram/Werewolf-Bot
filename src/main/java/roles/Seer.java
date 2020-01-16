@@ -1,6 +1,7 @@
 package roles;
 
 import model.Role;
+import model.RoleInteraction;
 import model.RoleStatus;
 import model.WerewolfSession;
 import net.dv8tion.jda.api.entities.User;
@@ -39,6 +40,7 @@ public class Seer extends Role {
                 session.getModerator().openPrivateChannel().queue((channel) -> {
                     channel.sendMessage(getNickName() + " inspected " + target.getNickName()).queue();
                 });
+                target.onInteract(user.getId(), RoleInteraction.INSPECT);
                 respondedThisRound = true;
                 return true;
             }

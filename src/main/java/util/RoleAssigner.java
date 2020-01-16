@@ -27,6 +27,7 @@ public class RoleAssigner {
         negativeVillagerRoles = new HashMap<>();
         negativeVillagerRoles.put("Lycan", 5);
         negativeVillagerRoles.put("Lover", 6);
+        negativeVillagerRoles.put("Veteran", 6);
 
         neutralVillagerRoles = new HashMap<>();
         neutralVillagerRoles.put("Royalty", 6);

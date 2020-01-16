@@ -1,6 +1,7 @@
 package roles;
 
 import model.Role;
+import model.RoleInteraction;
 import model.RoleStatus;
 import model.WerewolfSession;
 import net.dv8tion.jda.api.entities.User;
@@ -40,6 +41,7 @@ public class Doctor extends Role {
                 session.getModerator().openPrivateChannel().queue((channel) -> {
                     channel.sendMessage(getNickName() + " protected " + target.getNickName()).queue();
                 });
+                target.onInteract(user.getId(), RoleInteraction.PROTECT);
                 respondedThisRound = true;
                 return true;
             }

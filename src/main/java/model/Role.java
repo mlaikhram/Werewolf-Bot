@@ -66,6 +66,8 @@ public abstract class Role {
         respondedThisRound = false;
     }
 
+    public void onInteract(String id, RoleInteraction interaction) {}
+
     // Send an initial prompt to the user, in which they will respond with a number corresponding to a user
     // Returns true if prompt requires a response, and false otherwise
     public abstract boolean prompt();

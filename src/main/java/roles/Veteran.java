@@ -1,37 +1,27 @@
 package roles;
 
 import model.Role;
+import model.RoleInteraction;
 import model.RoleStatus;
 import model.WerewolfSession;
 import net.dv8tion.jda.api.entities.User;
 
-public class ToughGuy extends Role {
+public class Veteran extends Role {
 
-    private boolean attacked;
-
-    public ToughGuy(String nickName, User user, WerewolfSession session) {
-        super("Tough Guy", nickName, false, user, session);
+    public Veteran(String nickName, User user, WerewolfSession session) {
+        super("Veteran", nickName, false, user, session);
         this.status = RoleStatus.ALIVE;
-        this.attacked = false;
         user.openPrivateChannel().queue((channel) -> {
-            channel.sendMessage("You are a Tough Guy. You will be trying to execute the werewolves each day. If you are killed by the Werewolves you will instead start bleeding out and die one turn later").queue();
+            channel.sendMessage("You are a Veteran. You will be trying to execute the werewolves each day. You will kill any player that interacts with you in the night").queue();
         });
-    }
-
-    @Override
-    public String getRoleName(boolean detailed) {
-        return getRoleName() + ((attacked && detailed) ? ") (bleeding" : "");
     }
 
     @Override
     public boolean prompt() {
         if (status == RoleStatus.ALIVE) {
             user.openPrivateChannel().queue((channel) -> {
-                channel.sendMessage( session.getRolesPrompt(false) + "You are a Tough Guy." + (attacked ? "You are bleeding out and will die unless you are protected." : "") + " Select the player that you think is a Werewolf").queue();
+                channel.sendMessage( session.getRolesPrompt(false) + "You are a Veteran. Select the player that you think is a Werewolf").queue();
             });
-            if (attacked) {
-                session.addVictim(user.getId());
-            }
             return true;
         }
         return false;
@@ -58,14 +48,10 @@ public class ToughGuy extends Role {
     }
 
     @Override
-    public boolean kill() {
-        if (!attacked) {
-            attacked = true;
-            return false;
-        }
-        else {
-            status = RoleStatus.DEAD;
-            return true;
-        }
+    public void onInteract(String id, RoleInteraction interaction) {
+        session.addVictim(id);
+        session.getModerator().openPrivateChannel().queue((channel) -> {
+            channel.sendMessage(getNickName() + " attacked " + session.getRoles().get(id).getNickName()).queue();
+        });
     }
 }
