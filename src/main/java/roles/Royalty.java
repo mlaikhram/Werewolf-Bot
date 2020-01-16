@@ -5,29 +5,21 @@ import model.RoleStatus;
 import model.WerewolfSession;
 import net.dv8tion.jda.api.entities.User;
 
-public class Lover extends Role {
+public class Royalty extends Role {
 
-    protected User partner;
-
-    public Lover(String nickName, User user, WerewolfSession session, User partner) {
-        super("Lover", nickName, false, user, session);
-        this.partner = partner;
+    public Royalty(String nickName, User user, WerewolfSession session) {
+        super("Royalty", nickName, false, user, session);
         this.status = RoleStatus.ALIVE;
         user.openPrivateChannel().queue((channel) -> {
-            channel.sendMessage("You are a Lover. You will be trying to execute the werewolves each day. If your partner is killed or executed, you will die at the same time. Your partner is " + partner.getName()).queue();
+            channel.sendMessage("You are Royalty. You will be trying to execute the werewolves each day. You cannot be executed by the Villagers").queue();
         });
-    }
-
-    @Override
-    public String getRoleName(boolean detailed) {
-        return getRoleName() + (detailed ? " -> " + partner.getName() : "");
     }
 
     @Override
     public boolean prompt() {
         if (status == RoleStatus.ALIVE) {
             user.openPrivateChannel().queue((channel) -> {
-                channel.sendMessage( session.getRolesPrompt(false) + "You are a Lover. Your partner is " + partner.getName() + ". Select the player that you think is a Werewolf").queue();
+                channel.sendMessage( session.getRolesPrompt(false) + "You are Royalty. Select the player that you think is a Werewolf").queue();
             });
             return true;
         }
@@ -54,7 +46,9 @@ public class Lover extends Role {
         }
     }
 
-    public User getPartner() {
-        return partner;
+    @Override
+    public boolean execute() {
+        session.getChannel().sendMessage(getNickName() + " is Royalty and cannot be executed by the Villagers!").queue();
+        return false;
     }
 }

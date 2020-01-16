@@ -52,12 +52,14 @@ public abstract class Role {
         return status;
     }
 
-    public void kill() {
+    public boolean kill() {
         status = RoleStatus.DEAD;
+        return true;
     }
 
-    public void execute() {
+    public boolean execute() {
         status = RoleStatus.DEAD;
+        return true;
     }
 
     public void resetRound() {

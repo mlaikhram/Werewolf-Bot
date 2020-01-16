@@ -5,30 +5,28 @@ import model.RoleStatus;
 import model.WerewolfSession;
 import net.dv8tion.jda.api.entities.User;
 
-public class Lover extends Role {
+public class ToughGuy extends Role {
 
-    protected User partner;
+    private boolean attacked;
 
-    public Lover(String nickName, User user, WerewolfSession session, User partner) {
-        super("Lover", nickName, false, user, session);
-        this.partner = partner;
+    public ToughGuy(String nickName, User user, WerewolfSession session) {
+        super("Tough Guy", nickName, false, user, session);
         this.status = RoleStatus.ALIVE;
+        this.attacked = false;
         user.openPrivateChannel().queue((channel) -> {
-            channel.sendMessage("You are a Lover. You will be trying to execute the werewolves each day. If your partner is killed or executed, you will die at the same time. Your partner is " + partner.getName()).queue();
+            channel.sendMessage("You are a Tough Guy. You will be trying to execute the werewolves each day. If you are killed by the Werewolves you will instead start bleeding out and die one turn later").queue();
         });
-    }
-
-    @Override
-    public String getRoleName(boolean detailed) {
-        return getRoleName() + (detailed ? " -> " + partner.getName() : "");
     }
 
     @Override
     public boolean prompt() {
         if (status == RoleStatus.ALIVE) {
             user.openPrivateChannel().queue((channel) -> {
-                channel.sendMessage( session.getRolesPrompt(false) + "You are a Lover. Your partner is " + partner.getName() + ". Select the player that you think is a Werewolf").queue();
+                channel.sendMessage( session.getRolesPrompt(false) + "You are a Tough Guy." + (attacked ? "You are bleeding out and will die unless you are protected." : "") + " Select the player that you think is a Werewolf").queue();
             });
+            if (attacked) {
+                session.addVictim(user.getId());
+            }
             return true;
         }
         return false;
@@ -54,7 +52,15 @@ public class Lover extends Role {
         }
     }
 
-    public User getPartner() {
-        return partner;
+    @Override
+    public boolean kill() {
+        if (!attacked) {
+            attacked = true;
+            return false;
+        }
+        else {
+            status = RoleStatus.DEAD;
+            return true;
+        }
     }
 }

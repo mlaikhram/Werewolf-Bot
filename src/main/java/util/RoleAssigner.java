@@ -13,6 +13,7 @@ public class RoleAssigner {
 
     private static double WEREWOLF_PERCENT = 0.25;  // rounds down
     private static double NEGATIVE_VILLAGER_PERCENT = 0.25;  // rounds up
+    private static double NEUTRAL_VILLAGER_PERCENT = 0.125;  // rounds up
     private static double ALT_ROLE_PERCENT = 0.125; // rounds up
 
     //                <Role    Min Player Count>
@@ -27,9 +28,11 @@ public class RoleAssigner {
         negativeVillagerRoles.put("Lycan", 5);
         negativeVillagerRoles.put("Lover", 6);
 
-        positiveVillagerRoles = new HashMap<>();
-
         neutralVillagerRoles = new HashMap<>();
+        neutralVillagerRoles.put("Royalty", 6);
+        neutralVillagerRoles.put("ToughGuy", 6);
+
+        positiveVillagerRoles = new HashMap<>();
 
         werewolfRoles = new HashMap<>();
 
@@ -95,10 +98,11 @@ public class RoleAssigner {
 //            remainingIds.remove(miserId);
 
             // Villager Roles that detriment the Villagers
-            int negativeVillagerRoleCount = new Random().nextInt((int) Math.ceil(playerCount * NEGATIVE_VILLAGER_PERCENT)) + 1;
+//            int negativeVillagerRoleCount = new Random().nextInt((int) Math.ceil(playerCount * NEGATIVE_VILLAGER_PERCENT)) + 1;
+            int negativeVillagerRoleCount = new Random().nextInt(3) + (int) Math.ceil(playerCount * NEGATIVE_VILLAGER_PERCENT) - 1;
             for (int i = 0; i < negativeVillagerRoleCount && remainingIds.size() > 0; ++i) {
                 String negativeVillagerRole = randomSelect(possibleNegativeVillagerRoles);
-                possibleNegativeVillagerRoles.remove(negativeVillagerRole);
+//                possibleNegativeVillagerRoles.remove(negativeVillagerRole);
                 if (negativeVillagerRole.equals("Lover") && remainingIds.size() >= 2) {
                     String lover1Id = randomSelect(remainingIds);
                     remainingIds.remove(lover1Id);
@@ -115,13 +119,20 @@ public class RoleAssigner {
                     remainingIds.remove(negativeVillagerRoleId);
                     assignRole(negativeVillagerRoleId, negativeVillagerRole, session);
                 }
+                else {
+                    possibleNegativeVillagerRoles.remove(negativeVillagerRole);
+                }
             }
 
-//            String lycanId = randomSelect(remainingIds);
-//            User lycanUser = session.getRoles().get(lycanId).getUser();
-//            session.getRoles().put(lycanId, new Lycan(lycanUser.getName(), lycanUser, session));
-//            assignRole(lycanId, "Lycan", session);
-//            remainingIds.remove(lycanId);
+            int neutralVillagerRoleCount = new Random().nextInt(3) + (int) Math.ceil(playerCount * NEUTRAL_VILLAGER_PERCENT) - 1;
+            for (int i = 0; i < neutralVillagerRoleCount && remainingIds.size() > 0; ++i) {
+                String neutralVillagerRole = randomSelect(possibleNeutralVillagerRoles);
+                possibleNeutralVillagerRoles.remove(neutralVillagerRole);
+                String neutralVillagerRoleId = randomSelect(remainingIds);
+                remainingIds.remove(neutralVillagerRoleId);
+                assignRole(neutralVillagerRoleId, neutralVillagerRole, session);
+            }
+
 
             // basic villagers
             for (String id : remainingIds) {
